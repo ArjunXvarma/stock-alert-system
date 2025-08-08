@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<form method="post" action="/getCandleData">
+    <label>Instrument Key: <input type="text" name="instrument_key" required></label><br>
+    <label>Unit (e.g., days): <input type="text" name="unit" required></label><br>
+    <label>Interval (e.g., 1): <input type="number" name="interval" required></label><br>
+    <label>From Date (yyyy-mm-dd): <input type="text" name="from_date" required></label><br>
+    <label>To Date (yyyy-mm-dd): <input type="text" name="to_date" required></label><br>
+    <button type="submit">Fetch Candle Data</button>
+</form>
+
+{% if error %}
+<p style="color:red;">{{ error }}</p>
+{% endif %}
+
+{% if price_chart %}
+    <h2>Price Candlestick</h2>
+    {{ price_chart | safe }}
+    <h2>Volume Chart</h2>
+    {{ volume_chart | safe }}
+{% endif %}
+{% endblock %}
