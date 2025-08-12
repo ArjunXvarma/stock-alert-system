@@ -13,47 +13,47 @@ async def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @router.post("/getCandleData", response_class=HTMLResponse)
-async def fetch(request: Request,
-                instrument_key: str = Form(...),
-                unit: str = Form(...),
-                interval: int = Form(...),
-                from_date: str = Form(...),
-                to_date: str = Form(...)):
-
+async def fetch(
+    request: Request,
+    instrument_key: str = Form(...),
+    unit: str = Form(...),
+    interval: int = Form(...),
+    to_date: str = Form(...),
+    from_date: str = Form(...)
+):
     data = fetch_candle_data(instrument_key, unit, interval, to_date, from_date)
-
     if not data or "data" not in data:
-        return templates.TemplateResponse("index.html", {
-            "request": request,
-            "error": "No data retrieved or API error."
+        return templates.TemplateResponse("chart.html", {"request": request, "candles": [], "volumes": []})
+
+    candle_list = data["data"]["candles"]
+
+    candles = []
+    volumes = []
+
+    for candle in candle_list:
+        # Parse date string into timestamp (seconds)
+        dt = datetime.fromisoformat(candle[0])
+        timestamp = int(dt.timestamp())
+
+        candles.append({
+            "time": candle[0],
+            "open": candle[1],
+            "high": candle[2],
+            "low": candle[3],
+            "close": candle[4]
         })
 
-    candles = data["data"]["candles"]
-    timestamps, open_, high, low, close, volume, open_interests = zip(*candles)
+        volumes.append({
+            "time": candle[0],
+            "value": candle[5],
+            "color": '#26a69a' if candle[4] >= candle[1] else '#ef5350'
+        })
 
-    # Convert timestamp strings to datetime
-    timestamps = [datetime.fromisoformat(t) for t in timestamps]
+        candles.sort(key=lambda x: x["time"])
+        volumes.sort(key=lambda x: x["time"])
 
-    # Create price candlestick chart
-    price_fig = go.Figure(data=[go.Candlestick(
-        x=timestamps,
-        open=open_,
-        high=high,
-        low=low,
-        close=close,
-        name="Price"
-    )])
-    price_fig.update_layout(title="Price Candlestick", xaxis_title="Time", yaxis_title="Price")
-
-    # Create volume bar chart
-    volume_fig = go.Figure(data=[go.Bar(x=timestamps, y=volume, name="Volume")])
-    volume_fig.update_layout(title="Volume Chart", xaxis_title="Time", yaxis_title="Volume")
-
-    price_chart_html = price_fig.to_html(full_html=False)
-    volume_chart_html = volume_fig.to_html(full_html=False)
-
-    return templates.TemplateResponse("index.html", {
+    return templates.TemplateResponse("chart.html", {
         "request": request,
-        "price_chart": price_chart_html,
-        "volume_chart": volume_chart_html
+        "candles": candles,
+        "volumes": volumes
     })
