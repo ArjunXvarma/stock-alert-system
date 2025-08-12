@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Stock Chart</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        body {
+            background: radial-gradient(circle at top, #0f2027, #203a43, #2c5364);
+            color: white;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.5),
+                        -5px -5px 15px rgba(255,255,255,0.05);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.3s ease-in-out;
+        }
+        .glass-card:hover {
+            box-shadow: 0 0 10px rgba(0,255,200,0.4);
+        }
+        .chart-container {
+            width: 100%;
+            height: 500px;
+        }
+        .navbar {
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-dark mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="/">📈 Live Stock Chart</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="glass-card p-4 mb-4">
+            <h4 class="mb-3 text-info">Instrument: {{ instrument_key }}</h4>
+            <div id="live-chart" class="chart-container"></div>
+        </div>
+    </div>
+
+    <script>
+        const instrumentKey = "{{ instrument_key }}";
+
+        const chart = LightweightCharts.createChart(document.getElementById('live-chart'), {
+            layout: { textColor: 'white', background: { type: 'solid', color: 'rgba(0,0,0,0)' } },
+            grid: {
+                vertLines: { color: 'rgba(255,255,255,0.1)' },
+                horzLines: { color: 'rgba(255,255,255,0.1)' }
+            }
+        });
+
+        const candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, { 
+            upColor: '#26a69a', 
+            downColor: '#ef5350', 
+            borderVisible: false, 
+            wickUpColor: '#26a69a',
+            wickDownColor: '#ef5350' 
+        });        
+
+        let ws = new WebSocket(`ws://${window.location.host}/ws/live/${instrumentKey}`);
+
+        ws.onmessage = (event) => {
+            const tick = JSON.parse(event.data);
+            // Assuming `tick` contains time, open, high, low, close
+            console.log(tick);
+            
+            candleSeries.update({
+                time: Math.floor(Date.now() / 1000),  // current timestamp
+                open: tick.open,
+                high: tick.high,
+                low: tick.low,
+                close: tick.close
+            });
+        };
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

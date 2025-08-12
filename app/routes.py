@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Request, Form
+from fastapi import APIRouter, Request, Form, WebSocket
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from app.upstox_api import fetch_candle_data
+from app.websocket_stream import stream_ticks
 import plotly.graph_objects as go
 from datetime import datetime
 
@@ -52,8 +53,26 @@ async def fetch(
         candles.sort(key=lambda x: x["time"])
         volumes.sort(key=lambda x: x["time"])
 
-    return templates.TemplateResponse("chart.html", {
+    return templates.TemplateResponse("periodicChart.html", {
         "request": request,
         "candles": candles,
         "volumes": volumes
+    })
+
+@router.websocket("/ws/live/{instrument_key}")
+async def live_data(websocket: WebSocket, instrument_key: str):
+    await websocket.accept()
+
+    async def send_to_client(data):
+        print(data)
+        await websocket.send_json(data)
+
+    # Start streaming from Upstox
+    await stream_ticks([instrument_key], send_to_client)
+
+@router.get("/live/{instrument_key}", response_class=HTMLResponse)
+async def live_chart(request: Request, instrument_key: str):
+    return templates.TemplateResponse("liveChart.html", {
+        "request": request,
+        "instrument_key": instrument_key
     })
