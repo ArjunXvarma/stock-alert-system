@@ -2,3 +2,6 @@
 .env
 
 app/__pycache__
+
+test-main.py
+test.py
