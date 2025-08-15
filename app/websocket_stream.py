@@ -1,38 +1,61 @@
 import asyncio
 import json
+import ssl
 import websockets
-from typing import List
-import os
 import requests
+import os
 from dotenv import load_dotenv
+from fastapi import APIRouter, WebSocket
+from google.protobuf.json_format import MessageToDict
+import app.MarketDataFeed_pb2 as pb
+from app.state import clients
 
 load_dotenv()
+router = APIRouter()
 
-ACCESS_TOKEN = os.getenv("UPSTOX_ACCESS_TOKEN")
-UPSTOX_WS_URL = os.getenv("UPSTOX_WS_URL")
+UPSTOX_ACCESS_TOKEN = os.getenv('UPSTOX_ACCESS_TOKEN')
 
-async def stream_ticks(instrument_keys: List[str], send_callback):
-    uri = f"{UPSTOX_WS_URL}/feed/market-data-feed"
-    async with websockets.connect(uri, additional_headers={"Authorization": f"Bearer {ACCESS_TOKEN}"}) as ws:
-        # Subscribe to instruments
-        subscribe_msg = {
-            "guid": "13syxu852ztodyqncwt0",
-            "method": "subscribe",
+def get_market_data_feed_authorize_v3():
+    headers = {
+        'Accept': 'application/json',
+        'Authorization': f'Bearer {UPSTOX_ACCESS_TOKEN}'
+    }
+    url = 'https://api.upstox.com/v3/feed/market-data-feed/authorize'
+    resp = requests.get(url=url, headers=headers)
+    return resp.json()
+
+def decode_protobuf(buffer):
+    feed_response = pb.FeedResponse()
+    feed_response.ParseFromString(buffer)
+    return feed_response
+
+async def fetch_market_data(instrument_keys, client_websocket):
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+
+    response = get_market_data_feed_authorize_v3()
+
+    async with websockets.connect(response["data"]["authorized_redirect_uri"], ssl=ssl_context) as websocket:
+        await asyncio.sleep(1)
+        sub_data = {
+            "guid": "someguid",
+            "method": "sub",
             "data": {
                 "mode": "full",
                 "instrumentKeys": instrument_keys
             }
         }
-        await ws.send(json.dumps(subscribe_msg))
+        await websocket.send(json.dumps(sub_data).encode('utf-8'))
 
-        async for message in ws:
-            if isinstance(message, bytes):
-                # Handle binary tick data (decode protobuf or parse accordingly)
-                # For now, let's just skip or log length
-                print(f"Received binary data: {len(message)} bytes")
-                continue
-            else:
-                # Text message (JSON)
-                data = json.loads(message)
-                print(data)
-                await send_callback(data)  # push to FastAPI websocket
+        while True:
+            msg = await websocket.recv()
+            decoded = decode_protobuf(msg)
+            data_dict = MessageToDict(decoded)
+
+            try:
+                print('sending messages')
+                await client_websocket.send_json(data_dict)
+            
+            except:
+                print('Error in sending message to client')

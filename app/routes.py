@@ -2,12 +2,15 @@ from fastapi import APIRouter, Request, Form, WebSocket
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from app.upstox_api import fetch_candle_data
-from app.websocket_stream import stream_ticks
+from app.websocket_stream import fetch_market_data
 import plotly.graph_objects as go
 from datetime import datetime
+import asyncio
+from app.state import clients
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+clients = set()
 
 @router.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -62,17 +65,14 @@ async def fetch(
 @router.websocket("/ws/live/{instrument_key}")
 async def live_data(websocket: WebSocket, instrument_key: str):
     await websocket.accept()
+    clients.add(websocket)
 
-    async def send_to_client(data):
-        print(data)
-        await websocket.send_json(data)
+    # Start streaming in the background (if not already running)
+    asyncio.create_task(fetch_market_data([instrument_key], websocket))
 
-    # Start streaming from Upstox
-    await stream_ticks([instrument_key], send_to_client)
-
-@router.get("/live/{instrument_key}", response_class=HTMLResponse)
-async def live_chart(request: Request, instrument_key: str):
-    return templates.TemplateResponse("liveChart.html", {
-        "request": request,
-        "instrument_key": instrument_key
-    })
+    try:
+        while True:
+            await websocket.receive_text()  # Keep connection alive
+    except:
+        print('Socket being removed')
+        clients.remove(websocket)
