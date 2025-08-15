@@ -30,13 +30,16 @@
         .navbar {
             background: rgba(0,0,0,0.6);
             backdrop-filter: blur(8px);
+            margin: 0 auto;
+            max-width: 98%;
+            border-radius: 12px;
         }
     </style>
 </head>
 <body>
 
     <nav class="navbar navbar-dark mb-4">
-        <div class="container">
+        <div class="container-fluid">
             <a class="navbar-brand" href="/">📈 Live Stock Chart</a>
         </div>
     </nav>
@@ -62,25 +65,27 @@
         const candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, { 
             upColor: '#26a69a', 
             downColor: '#ef5350', 
-            borderVisible: false, 
+            borderUpColor: '#26a69a',
+            borderDownColor: '#ef5350',
             wickUpColor: '#26a69a',
-            wickDownColor: '#ef5350' 
-        });        
+            wickDownColor: '#ef5350'
+        });
 
         let ws = new WebSocket(`ws://${window.location.host}/ws/live/${instrumentKey}`);
 
         ws.onmessage = (event) => {
             const tick = JSON.parse(event.data);
-            // Assuming `tick` contains time, open, high, low, close
             console.log(tick);
-            
-            candleSeries.update({
-                time: Math.floor(Date.now() / 1000),  // current timestamp
-                open: tick.open,
-                high: tick.high,
-                low: tick.low,
-                close: tick.close
-            });
+
+            const candle = {
+                time: tick.time,
+                open: parseFloat(tick.open),
+                high: parseFloat(tick.high),
+                low: parseFloat(tick.low),
+                close: parseFloat(tick.close)
+            };
+
+            candleSeries.update(candle);
         };
     </script>
 

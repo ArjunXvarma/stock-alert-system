@@ -82,11 +82,11 @@
             <div class="col-lg-8">
                 <div class="glass-card p-4 h-100">
                     <h4 class="mb-3 text-info">Enter Stock Parameters</h4>
-                    <form action="/getCandleData" method="post" class="row g-3">
+                    <form id="stockForm" action="/getCandleData" method="post" class="row g-3">
 
                         <div class="col-md-6">
                             <label class="form-label">Instrument Key</label>
-                            <input type="text" class="form-control" name="instrument_key" placeholder="e.g. NSE_EQ|INE002A01018" required>
+                            <input type="text" class="form-control" name="instrument_key" id="instrumentKey" placeholder="e.g. NSE_EQ|INE002A01018" required>
                         </div>
 
                         <div class="col-md-3">
@@ -107,6 +107,16 @@
                         <div class="col-md-6">
                             <label class="form-label">From Date</label>
                             <input type="date" class="form-control" name="from_date" required>
+                        </div>
+
+                        <!-- Live Data Checkbox -->
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="liveDataCheckbox">
+                                <label class="form-check-label" for="liveDataCheckbox">
+                                    Live Data
+                                </label>
+                            </div>
                         </div>
 
                         <div class="col-12 text-end">
@@ -142,26 +152,24 @@
     </div>
 
     <script>
-        // Simple watchlist add feature (frontend only for now)
-        // document.getElementById('watchlistForm').addEventListener('submit', function(e) {
-        //     e.preventDefault();
-        //     const input = document.getElementById('watchlistInput');
-        //     const val = input.value.trim();
-        //     if (val) {
-        //         const div = document.createElement('div');
-        //         div.className = 'watchlist-item';
-        //         div.textContent = val;
-        //         document.getElementById('watchlistItems').appendChild(div);
-        //         input.value = '';
-        //     }
-        // });
+        // Handle main stock form submission
+        document.getElementById('stockForm').addEventListener('submit', function(e) {
+            const isLive = document.getElementById('liveDataCheckbox').checked;
+            const instrumentKey = document.getElementById('instrumentKey').value.trim();
 
+            if (isLive && instrumentKey) {
+                e.preventDefault();
+                // Redirect to live streaming page instead
+                window.location.href = `/live/${encodeURIComponent(instrumentKey)}`;
+            }
+        });
+
+        // Watchlist redirect to live page
         document.getElementById('watchlistForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const input = document.getElementById('watchlistInput');
             const val = input.value.trim();
             if (val) {
-                // Redirect to live streaming route
                 window.location.href = `/live/${encodeURIComponent(val)}`;
             }
         });

@@ -76,3 +76,13 @@ async def live_data(websocket: WebSocket, instrument_key: str):
     except:
         print('Socket being removed')
         clients.remove(websocket)
+
+@router.get("/live/{instrument_key}", response_class=HTMLResponse)
+async def live_page(request: Request, instrument_key: str):
+    return templates.TemplateResponse(
+        "liveChart.html", 
+        {
+            "request": request,
+            "instrument_key": instrument_key
+        }
+    )
