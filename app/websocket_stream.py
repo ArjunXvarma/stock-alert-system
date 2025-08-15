@@ -35,10 +35,9 @@ async def fetch_market_data(instrument_keys, client_websocket: WebSocket):
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
 
-    # ✅ Get fresh URI each time
     response = get_market_data_feed_authorize_v3()
     if "data" not in response or "authorized_redirect_uri" not in response["data"]:
-        print("❌ Failed to get WebSocket URI:", response)
+        print("Failed to get WebSocket URI:", response)
         return
 
     uri = response["data"]["authorized_redirect_uri"]
