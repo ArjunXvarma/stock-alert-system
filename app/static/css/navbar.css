@@ -4,13 +4,12 @@
     backdrop-filter: blur(15px);
     -webkit-backdrop-filter: blur(15px);
     border-radius: 15px;
-    margin: 10px auto 25px auto; /* Centered with top/bottom spacing */
+    margin: 10px auto 25px auto;
     padding: 8px 20px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     border: 1px solid rgba(255, 255, 255, 0.15);
     transition: background 0.3s ease;
-
-    width: calc(100% - 40px);
+    width: 100%;
     max-width: 1450px;
 }
 
@@ -40,4 +39,19 @@
     color: #00f2fe !important;
     text-shadow: 0 0 8px rgba(0, 242, 254, 0.7);
     border-bottom: 2px solid #00f2fe;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 992px) {
+    .glass-nav {
+        border-radius: 0; /* No curve for mobile for better fit */
+        margin: 0; /* Remove extra margin */
+        padding: 10px 15px;
+    }
+    .navbar-brand {
+        font-size: 1.2rem;
+    }
+    .nav-link {
+        margin: 5px 0; /* Stack vertically in collapsed menu */
+    }
 }

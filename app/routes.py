@@ -34,24 +34,40 @@ async def fetch(
     candles = []
     volumes = []
 
+    prev_volume = candle_list[0][5]
+
     for candle in candle_list:
-        # Parse date string into timestamp (seconds)
         dt = datetime.fromisoformat(candle[0])
         timestamp = int(dt.timestamp())
 
+        if unit == "days":
+            time_value = dt.strftime("%Y-%m-%d")
+        else:
+            time_value = int(dt.timestamp())
+
         candles.append({
-            "time": candle[0],
+            "time": time_value,
             "open": candle[1],
             "high": candle[2],
             "low": candle[3],
             "close": candle[4]
         })
 
+        current_volume = candle[5]
+        open_vol = prev_volume
+        close_vol = current_volume
+        high_vol = max(open_vol, close_vol)
+        low_vol = min(open_vol, close_vol)
+
         volumes.append({
-            "time": candle[0],
-            "value": candle[5],
-            "color": '#26a69a' if candle[4] >= candle[1] else '#ef5350'
+            "time": time_value,
+            "open": open_vol,
+            "high": high_vol,
+            "low": low_vol,
+            "close": close_vol
         })
+
+        prev_volume = current_volume
 
         candles.sort(key=lambda x: x["time"])
         volumes.sort(key=lambda x: x["time"])

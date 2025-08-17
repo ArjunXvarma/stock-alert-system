@@ -54,7 +54,9 @@ async def fetch_market_data(instrument_keys, client_websocket: WebSocket):
         }
         await websocket.send(json.dumps(sub_data).encode('utf-8'))
 
-        instrument_key = instrument_keys[0]  # use first instrument
+        instrument_key = instrument_keys[0]
+
+        current_candle = None
 
         while True:
             msg = await websocket.recv()
@@ -62,34 +64,56 @@ async def fetch_market_data(instrument_keys, client_websocket: WebSocket):
             data_dict = MessageToDict(decoded)
 
             try:
-                # Check if 'feeds' exists in the message
                 if "feeds" not in data_dict:
                     continue
-
-                # Check if our instrument key exists
                 if instrument_key not in data_dict["feeds"]:
                     continue
 
                 feed = data_dict["feeds"][instrument_key]
-
-                # Navigate safely through nested keys
                 market_ff = feed.get("ff", {}).get("marketFF", {})
                 market_ohlc = market_ff.get("marketOHLC", {}).get("ohlc", [])
 
                 if not market_ohlc:
                     continue
 
-                # Use the latest OHLC entry
                 latest_ohlc = market_ohlc[-1]
-                candle = {
-                    "time": int(latest_ohlc["ts"]) // 1000,  # convert ms to seconds
-                    "open": float(latest_ohlc["open"]),
-                    "high": float(latest_ohlc["high"]),
-                    "low": float(latest_ohlc["low"]),
-                    "close": float(latest_ohlc["close"])
-                }
+                ts = int(latest_ohlc["ts"]) // 1000  # seconds
+                minute_ts = ts - (ts % 60)  # round down to nearest minute
 
-                await client_websocket.send_json(candle)
+                price_open = float(latest_ohlc["open"])
+                price_high = float(latest_ohlc["high"])
+                price_low = float(latest_ohlc["low"])
+                price_close = float(latest_ohlc["close"])
+                volume = float(latest_ohlc.get("volume", 0))
+
+                if current_candle is None:
+                    current_candle = {
+                        "time": minute_ts,
+                        "open": price_open,
+                        "high": price_high,
+                        "low": price_low,
+                        "close": price_close,
+                        "volume": volume,
+                    }
+                else:
+                    if minute_ts == current_candle["time"]:
+                        # update ongoing candle
+                        current_candle["high"] = max(current_candle["high"], price_high)
+                        current_candle["low"] = min(current_candle["low"], price_low)
+                        current_candle["close"] = price_close
+                        current_candle["volume"] += volume
+                    else:
+                        # flush completed candle
+                        await client_websocket.send_json(current_candle)
+                        # start new candle
+                        candle = {
+                            "time": int(latest_ohlc["ts"]) // 1000,  # seconds timestamp
+                            "open": float(latest_ohlc["open"]),
+                            "high": float(latest_ohlc["high"]),
+                            "low": float(latest_ohlc["low"]),
+                            "close": float(latest_ohlc["close"]),
+                            "volume": float(latest_ohlc.get("volume", 0))  # Add volume
+                        }
 
             except Exception as e:
                 print(f"Error in sending message to client: {e}")
