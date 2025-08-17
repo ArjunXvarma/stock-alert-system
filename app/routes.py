@@ -7,6 +7,10 @@ import plotly.graph_objects as go
 from datetime import datetime
 import asyncio
 from app.state import clients
+from datetime import datetime, timedelta, timezone
+
+IST = timezone(timedelta(hours=5, minutes=30))
+UTC = timezone.utc
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -27,7 +31,7 @@ async def fetch(
 ):
     data = fetch_candle_data(instrument_key, unit, interval, to_date, from_date)
     if not data or "data" not in data:
-        return templates.TemplateResponse("chart.html", {"request": request, "candles": [], "volumes": []})
+        return templates.TemplateResponse("periodicChart.html", {"request": request, "candles": [], "volumes": []})
 
     candle_list = data["data"]["candles"]
 
@@ -37,7 +41,9 @@ async def fetch(
     prev_volume = candle_list[0][5]
 
     for candle in candle_list:
-        dt = datetime.fromisoformat(candle[0])
+        dt = datetime.fromisoformat(candle[0]).replace(tzinfo=UTC)
+        dt = dt.astimezone(IST)
+
         timestamp = int(dt.timestamp())
 
         if unit == "days":
