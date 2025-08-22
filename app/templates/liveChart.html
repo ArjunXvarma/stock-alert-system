@@ -18,20 +18,36 @@
             <h4 class="mb-3 text-info">Instrument: {{ instrument_key }}</h4>
             <div id="live-chart" class="chart-container"></div>
         </div>
+
+        <div class="glass-card p-4">
+            <h4 class="mb-3 text-info">Volume Data</h4>
+            <div id="volume-chart" class="chart-container" style="height: 200px;"></div>
+        </div>
     </div>
 
     <script>
         const instrumentKey = "{{ instrument_key }}";
 
-        const chart = LightweightCharts.createChart(document.getElementById('live-chart'), {
-            layout: { textColor: 'white', background: { type: 'solid', color: 'rgba(0,0,0,0)' } },
+        let chartOptions = { 
+            layout: { 
+                textColor: 'white', 
+                background: { 
+                    type: 'solid', 
+                    color: 'rgba(0,0,0,0)' 
+                } 
+            },
             grid: {
                 vertLines: { color: 'rgba(255,255,255,0.1)' },
                 horzLines: { color: 'rgba(255,255,255,0.1)' }
+            },
+            timeScale: {
+                timeVisible: true,
+                secondsVisible: false
             }
-        });
-
-        const candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, { 
+        };
+        
+        const priceChart = LightweightCharts.createChart(document.getElementById('live-chart'), chartOptions);
+        const candleSeries = priceChart.addSeries(LightweightCharts.CandlestickSeries, { 
             upColor: '#26a69a', 
             downColor: '#ef5350', 
             borderUpColor: '#26a69a',
@@ -39,6 +55,18 @@
             wickUpColor: '#26a69a',
             wickDownColor: '#ef5350'
         });
+        priceChart.timeScale().fitContent();
+
+        const volumeChart = LightweightCharts.createChart(document.getElementById('volume-chart'), chartOptions);
+        const volumeCandles = volumeChart.addSeries(LightweightCharts.CandlestickSeries, { 
+            upColor: '#26a69a', 
+            downColor: '#ef5350', 
+            borderVisible: false, 
+            wickUpColor: '#26a69a',
+            wickDownColor: '#ef5350'
+        });
+
+        volumeChart.timeScale().fitContent();
 
         let ws = new WebSocket(`ws://${window.location.host}/ws/live/${instrumentKey}`);
 
@@ -46,15 +74,24 @@
             const tick = JSON.parse(event.data);
             console.log(tick);
 
-            const candle = {
+            const priceCandle = {
                 time: tick.time,
-                open: parseFloat(tick.open),
-                high: parseFloat(tick.high),
-                low: parseFloat(tick.low),
-                close: parseFloat(tick.close)
+                open: parseFloat(tick.ohlc.open),
+                high: parseFloat(tick.ohlc.high),
+                low: parseFloat(tick.ohlc.low),
+                close: parseFloat(tick.ohlc.close)
             };
 
-            candleSeries.update(candle);
+            candleSeries.update(priceCandle);
+
+            const volumeCandle = {
+                time: tick.time,
+                open: parseFloat(tick.volume.open),
+                high: parseFloat(tick.volume.high),
+                low: parseFloat(tick.volume.low),
+                close: parseFloat(tick.volume.close)
+            }
+            volumeCandles.update(volumeCandle);
         };
     </script>
 

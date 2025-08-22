@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from fastapi import WebSocket
 from google.protobuf.json_format import MessageToDict
 import app.MarketDataFeed_pb2 as pb
+from datetime import datetime, timezone
 
 load_dotenv()
 
@@ -55,6 +56,7 @@ async def fetch_market_data(instrument_keys, client_websocket: WebSocket):
         await websocket.send(json.dumps(sub_data).encode('utf-8'))
 
         instrument_key = instrument_keys[0]
+        prev_volume = None  # to calculate volume OHLC
 
         while True:
             try:
@@ -71,16 +73,41 @@ async def fetch_market_data(instrument_keys, client_websocket: WebSocket):
 
                 latest_ohlc = market_ohlc[-1]
 
+                ts = int(latest_ohlc["ts"]) // 1000
+                price_open = float(latest_ohlc["open"])
+                price_high = float(latest_ohlc["high"])
+                price_low = float(latest_ohlc["low"])
+                price_close = float(latest_ohlc["close"])
+                current_volume = float(latest_ohlc.get("volume", 0))
+
+                # Compute volume OHLC from cumulative volume
+                if prev_volume is None:
+                    prev_volume = current_volume
+
+                vol_open = prev_volume
+                vol_close = current_volume
+                vol_high = max(vol_open, vol_close)
+                vol_low = min(vol_open, vol_close)
+
                 candle = {
-                    "time": int(latest_ohlc["ts"]) // 1000,  # seconds timestamp
-                    "open": float(latest_ohlc["open"]),
-                    "high": float(latest_ohlc["high"]),
-                    "low": float(latest_ohlc["low"]),
-                    "close": float(latest_ohlc["close"]),
-                    "volume": float(latest_ohlc.get("volume", 0))
+                    "time": ts,
+                    "ohlc": {
+                        "open": price_open,
+                        "high": price_high,
+                        "low": price_low,
+                        "close": price_close
+                    },
+                    "volume": {
+                        "open": vol_open,
+                        "high": vol_high,
+                        "low": vol_low,
+                        "close": vol_close
+                    }
                 }
 
                 await client_websocket.send_json(candle)
+
+                prev_volume = current_volume  # update for next tick
 
             except Exception as e:
                 print(f"Error in sending message to client: {e}")
