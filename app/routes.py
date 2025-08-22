@@ -7,7 +7,9 @@ import plotly.graph_objects as go
 from datetime import datetime
 import asyncio
 from app.state import clients
+from app.redis import redisClient
 from datetime import datetime, timedelta, timezone
+import json
 
 IST = timezone(timedelta(hours=5, minutes=30))
 UTC = timezone.utc
@@ -101,10 +103,38 @@ async def live_data(websocket: WebSocket, instrument_key: str):
 
 @router.get("/live/{instrument_key}", response_class=HTMLResponse)
 async def live_page(request: Request, instrument_key: str):
+    # Redis keys
+    price_key = f"{instrument_key}:price"
+    volume_key = f"{instrument_key}:volume"
+    timestamp_key = f"{instrument_key}:timestamp"
+
+    # Fetch all cached values
+    prices = redisClient.lrange(price_key, 0, -1) or []
+    volumes = redisClient.lrange(volume_key, 0, -1) or []
+    timestamps = redisClient.smembers(timestamp_key) or []
+
+    # Decode JSON strings
+    prices = [json.loads(p) for p in prices]
+    volumes = [json.loads(v) for v in volumes]
+    timestamps = [int(ts) for ts in timestamps]
+    timestamps.sort()
+
+    # Organize into frontend-friendly structure
+    historical_data = []
+    for ts, price, volume in zip(timestamps, prices, volumes):
+        historical_data.append({
+            "time": ts,   # UNIX seconds (Lightweight Charts expects this format)
+            "price": price,
+            "volume": volume
+        })
+
+    # historical_data.sort(key=lambda x: x['time'])
+
     return templates.TemplateResponse(
-        "liveChart.html", 
+        "liveChart.html",
         {
             "request": request,
-            "instrument_key": instrument_key
+            "instrument_key": instrument_key,
+            "historical_data": json.dumps(historical_data)  # pass JSON to frontend
         }
     )

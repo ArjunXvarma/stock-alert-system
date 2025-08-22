@@ -27,6 +27,7 @@
 
     <script>
         const instrumentKey = "{{ instrument_key }}";
+        const historicalData = {{ historical_data | safe }};        
 
         let chartOptions = { 
             layout: { 
@@ -45,7 +46,7 @@
                 secondsVisible: false
             }
         };
-        
+
         const priceChart = LightweightCharts.createChart(document.getElementById('live-chart'), chartOptions);
         const candleSeries = priceChart.addSeries(LightweightCharts.CandlestickSeries, { 
             upColor: '#26a69a', 
@@ -68,6 +69,35 @@
 
         volumeChart.timeScale().fitContent();
 
+        // Preload historical candles into chart
+        const priceCandles = historicalData
+        .filter(d => d.price && d.price.open != null && d.price.high != null && d.price.low != null && d.price.close != null)
+        .map(d => ({
+            time: d.time,
+            open: parseFloat(d.price.open),
+            high: parseFloat(d.price.high),
+            low: parseFloat(d.price.low),
+            close: parseFloat(d.price.close)
+        }));
+
+        console.log(priceCandles);
+        
+        candleSeries.setData(priceCandles);
+
+        const volumeCandlesData = historicalData
+        .filter(d => d.price && d.price.open != null && d.price.high != null && d.price.low != null && d.price.close != null)
+        .map(d => ({
+            time: d.time,
+            open: parseFloat(d.volume.open),
+            high: parseFloat(d.volume.high),
+            low: parseFloat(d.volume.low),
+            close: parseFloat(d.volume.close)
+        }));
+
+        console.log(volumeCandlesData);
+        
+        volumeCandles.setData(volumeCandlesData);
+
         let ws = new WebSocket(`ws://${window.location.host}/ws/live/${instrumentKey}`);
 
         ws.onmessage = (event) => {
@@ -76,10 +106,10 @@
 
             const priceCandle = {
                 time: tick.time,
-                open: parseFloat(tick.ohlc.open),
-                high: parseFloat(tick.ohlc.high),
-                low: parseFloat(tick.ohlc.low),
-                close: parseFloat(tick.ohlc.close)
+                open: parseFloat(tick.price.open),
+                high: parseFloat(tick.price.high),
+                low: parseFloat(tick.price.low),
+                close: parseFloat(tick.price.close)
             };
 
             candleSeries.update(priceCandle);

@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from fastapi import WebSocket
 from google.protobuf.json_format import MessageToDict
 import app.MarketDataFeed_pb2 as pb
-from datetime import datetime, timezone
+from app.redis import redisClient
 
 load_dotenv()
 
@@ -56,7 +56,10 @@ async def fetch_market_data(instrument_keys, client_websocket: WebSocket):
         await websocket.send(json.dumps(sub_data).encode('utf-8'))
 
         instrument_key = instrument_keys[0]
-        prev_volume = None  # to calculate volume OHLC
+
+        # State to compute volume OHLC across consecutive candles
+        last_sent_ts_ms = None        # last candle timestamp (ms) we sent
+        prev_candle_volume = None     # volume of the previous candle
 
         while True:
             try:
@@ -71,43 +74,84 @@ async def fetch_market_data(instrument_keys, client_websocket: WebSocket):
                 if not market_ohlc:
                     continue
 
-                latest_ohlc = market_ohlc[-1]
+                unsent = []
+                last_ts_seen = last_sent_ts_ms or 0
+                for o in market_ohlc:
+                    try:
+                        ts_ms = int(o["ts"])
+                        if ts_ms > last_ts_seen:
+                            unsent.append(o)
+                    except Exception:
+                        continue
 
-                ts = int(latest_ohlc["ts"]) // 1000
-                price_open = float(latest_ohlc["open"])
-                price_high = float(latest_ohlc["high"])
-                price_low = float(latest_ohlc["low"])
-                price_close = float(latest_ohlc["close"])
-                current_volume = float(latest_ohlc.get("volume", 0))
+                if not unsent:
+                    # No new completed candle; skip (avoid sending intra-minute duplicates)
+                    continue
 
-                # Compute volume OHLC from cumulative volume
-                if prev_volume is None:
-                    prev_volume = current_volume
+                # Send unsent candles in chronological order
+                unsent.sort(key=lambda x: int(x["ts"]))
 
-                vol_open = prev_volume
-                vol_close = current_volume
-                vol_high = max(vol_open, vol_close)
-                vol_low = min(vol_open, vol_close)
+                for o in unsent:
+                    ts_ms = int(o["ts"])
+                    ts_sec = ts_ms // 1000
 
-                candle = {
-                    "time": ts,
-                    "ohlc": {
+                    price_open = float(o["open"])
+                    price_high = float(o["high"])
+                    price_low  = float(o["low"])
+                    price_close= float(o["close"])
+                    current_candle_volume = float(o.get("volume", 0.0))
+
+                    # Initialize prev_candle_volume on the very first candle we ever send
+                    if prev_candle_volume is None:
+                        prev_candle_volume = current_candle_volume
+
+                    # Build volume OHLC like your historical route:
+                    vol_open = prev_candle_volume
+                    vol_close = current_candle_volume
+                    vol_high = max(vol_open, vol_close)
+                    vol_low  = min(vol_open, vol_close)
+
+                    price_payload = {
                         "open": price_open,
                         "high": price_high,
                         "low": price_low,
                         "close": price_close
-                    },
-                    "volume": {
+                    }
+
+                    volume_payload = {
                         "open": vol_open,
                         "high": vol_high,
                         "low": vol_low,
                         "close": vol_close
                     }
-                }
 
-                await client_websocket.send_json(candle)
+                    payload = {
+                        "time": ts_sec,
+                        "price": price_payload,
+                        "volume": volume_payload
+                    }
 
-                prev_volume = current_volume  # update for next tick
+                    # --- Store in Redis with uniqueness check ---
+                    price_key = f"{instrument_key}:price"
+                    volume_key = f"{instrument_key}:volume"
+                    timestamp_key = f"{instrument_key}:timestamp"
+
+                    if redisClient.ttl(price_key) == -1:
+                        redisClient.expire(price_key, 86400)
+                    if redisClient.ttl(volume_key) == -1:
+                        redisClient.expire(volume_key, 86400)
+                    if redisClient.ttl(timestamp_key) == -1:
+                        redisClient.expire(timestamp_key, 86400)
+
+                    if redisClient.sadd(timestamp_key, ts_sec):
+                        redisClient.rpush(price_key, json.dumps(price_payload))
+                        redisClient.rpush(volume_key, json.dumps(volume_payload))
+
+                    await client_websocket.send_json(payload)
+
+                    # Update state for next candle
+                    prev_candle_volume = current_candle_volume
+                    last_sent_ts_ms = ts_ms
 
             except Exception as e:
                 print(f"Error in sending message to client: {e}")
