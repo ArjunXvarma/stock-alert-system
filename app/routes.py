@@ -123,18 +123,16 @@ async def live_page(request: Request, instrument_key: str):
     historical_data = []
     for ts, price, volume in zip(timestamps, prices, volumes):
         historical_data.append({
-            "time": ts,   # UNIX seconds (Lightweight Charts expects this format)
+            "time": ts,
             "price": price,
             "volume": volume
         })
-
-    # historical_data.sort(key=lambda x: x['time'])
 
     return templates.TemplateResponse(
         "liveChart.html",
         {
             "request": request,
             "instrument_key": instrument_key,
-            "historical_data": json.dumps(historical_data)  # pass JSON to frontend
+            "historical_data": historical_data
         }
     )
