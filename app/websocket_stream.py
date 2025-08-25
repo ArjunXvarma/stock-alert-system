@@ -30,6 +30,54 @@ def decode_protobuf(buffer):
     feed_response.ParseFromString(buffer)
     return feed_response
 
+def extract_market_minute_data(data_dict, instrument_key):
+    """
+    Extracts the minute data and timestamp from the decoded protobuf dict.
+    Returns (market_minute_data, ts_ms) or (None, None) if not found.
+    """
+    feed = data_dict.get("feeds", {}).get(instrument_key, {})
+    market_ff = feed.get("ff", {}).get("marketFF", {})
+    market_ohlc = market_ff.get("marketOHLC", {}).get("ohlc", [])
+    if not market_ohlc or len(market_ohlc) < 2:
+        return None, None
+    market_minute_data = market_ohlc[1]
+    try:
+        ts_ms = int(market_minute_data["ts"])
+    except Exception:
+        return None, None
+    return market_minute_data, ts_ms
+
+def build_payload(ts_sec, price_data, volume_data):
+    """
+    Builds the payload dict for sending to the client.
+    """
+    price_payload = {
+        "time": ts_sec,
+        "open": float(price_data["open"]),
+        "high": float(price_data["high"]),
+        "low": float(price_data["low"]),
+        "close": float(price_data["close"])
+    }
+    volume_payload = {
+        "time": ts_sec,
+        "open": volume_data["open"],
+        "high": volume_data["high"],
+        "low": volume_data["low"],
+        "close": volume_data["close"]
+    }
+    return {
+        "time": ts_sec,
+        "price": price_payload,
+        "volume": volume_payload
+    }
+
+def update_redis_if_unique(redisClient, instrument_key, ts_sec, price_payload, volume_payload):
+    price_key = f"{instrument_key}:price"
+    volume_key = f"{instrument_key}:volume"
+    timestamp_key = f"{instrument_key}:timestamp"
+    if redisClient.sadd(timestamp_key, ts_sec):
+        redisClient.rpush(price_key, json.dumps(price_payload))
+        redisClient.rpush(volume_key, json.dumps(volume_payload))
 
 async def fetch_market_data(instrument_keys, client_websocket: WebSocket):
     ssl_context = ssl.create_default_context()
@@ -56,10 +104,8 @@ async def fetch_market_data(instrument_keys, client_websocket: WebSocket):
         await websocket.send(json.dumps(sub_data).encode("utf-8"))
 
         instrument_key = instrument_keys[0]
-
-        # State
-        last_received_ts_ms = None   # track last received timestamp
-        prev_candle_volume = None    # volume of previous candle
+        last_received_ts_ms = None 
+        prev_candle_volume = None
 
         while True:
             try:
@@ -67,29 +113,13 @@ async def fetch_market_data(instrument_keys, client_websocket: WebSocket):
                 decoded = decode_protobuf(msg)
                 data_dict = MessageToDict(decoded)
 
-                feed = data_dict.get("feeds", {}).get(instrument_key, {})
-                market_ff = feed.get("ff", {}).get("marketFF", {})
-                market_ohlc = market_ff.get("marketOHLC", {}).get("ohlc", [])
-
-                if not market_ohlc:
-                    continue
-
-                market_minute_data = market_ohlc[1]
-
-                print('--------------------------------MINUTE_DATA--------------------------------')
-                print(market_minute_data)
-                print('-----------------------------------------------------------------------')
-
-                try:
-                    ts_ms = int(market_minute_data["ts"])
-                except Exception:
+                market_minute_data, ts_ms = extract_market_minute_data(data_dict, instrument_key)
+                if market_minute_data is None or ts_ms is None:
                     continue
 
                 # --- Skip if timestamp is same as previous ---
                 if last_received_ts_ms is not None and ts_ms == last_received_ts_ms:
                     continue
-
-                # Update last received timestamp
                 last_received_ts_ms = ts_ms
 
                 ts_sec = ts_ms // 1000
@@ -107,52 +137,31 @@ async def fetch_market_data(instrument_keys, client_websocket: WebSocket):
                 vol_high = max(vol_open, vol_close)
                 vol_low  = min(vol_open, vol_close)
 
-                price_payload = {
-                    "time": ts_sec,
+                price_data = {
                     "open": price_open,
                     "high": price_high,
                     "low": price_low,
                     "close": price_close
                 }
-
-                volume_payload = {
-                    "time": ts_sec,
+                volume_data = {
                     "open": vol_open,
                     "high": vol_high,
                     "low": vol_low,
                     "close": vol_close
                 }
 
-                payload = {
-                    "time": ts_sec,
-                    "price": price_payload,
-                    "volume": volume_payload
-                }
-
-                # --- Store in Redis only if unique ---
-                price_key = f"{instrument_key}:price"
-                volume_key = f"{instrument_key}:volume"
-                timestamp_key = f"{instrument_key}:timestamp"
-
-                if redisClient.sadd(timestamp_key, ts_sec):
-                    redisClient.rpush(price_key, json.dumps(price_payload))
-                    redisClient.rpush(volume_key, json.dumps(volume_payload))
-
-                # print(payload)
+                payload = build_payload(ts_sec, price_data, volume_data)
+                update_redis_if_unique(redisClient, instrument_key, ts_sec, payload["price"], payload["volume"])
 
                 try:
                     await client_websocket.send_json(payload)
-                    print('--------------------------------PAYLOAD--------------------------------')
-                    print(payload)
-                    print('-----------------------------------------------------------------------')
                     prev_candle_volume = current_candle_volume
                 except WebSocketDisconnect:
                     print("Client disconnected, stopping stream")
                     break
                 except RuntimeError as e:
-                    # This is where "Unexpected ASGI message" happens
                     print(f"Client websocket already closed: {e}")
                     break
 
             except Exception as e:
-                print(f"Error in sending message to client: {e}")
+                print(f"Error in sending message")
