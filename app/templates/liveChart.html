@@ -15,7 +15,8 @@
 
     <div class="container main-container"
         data-instrument="{{ instrument_key }}"
-        data-historical='{{ historical_data | tojson | safe if historical_data else "[]" }}'>
+        data-historical='{{ historical_data | tojson | safe if historical_data else "[]" }}'
+        data-alerts='{{ alerts | tojson }}'>
 
         <div class="glass-card p-4 mb-4">
             <h4 class="mb-3 text-info">Instrument: {{ instrument_key }}</h4>

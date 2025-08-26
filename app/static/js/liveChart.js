@@ -3,6 +3,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const instrumentKey = container.dataset.instrument;
 
     const historicalData = JSON.parse(container.dataset.historical);
+    const historicalAlerts = JSON.parse(container.dataset.alerts);
+
+    // Keep a global array of alert markers
+    let alertMarkers = [];
 
     let chartOptions = { 
         layout: { 
@@ -24,17 +28,33 @@ document.addEventListener("DOMContentLoaded", () => {
         borderUpColor: '#26a69a', borderDownColor: '#ef5350',
         wickUpColor: '#26a69a', wickDownColor: '#ef5350'
     });
+
     priceChart.timeScale().fitContent();
 
     const volumeChart = LightweightCharts.createChart(
         document.getElementById('volume-chart'), chartOptions
     );
+
     const volumeCandles = volumeChart.addSeries(LightweightCharts.CandlestickSeries, { 
         upColor: '#26a69a', downColor: '#ef5350',
         borderVisible: false,
         wickUpColor: '#26a69a', wickDownColor: '#ef5350'
     });
+
     volumeChart.timeScale().fitContent();
+
+    function addAlertMarker(time, text, type = "up") {
+        console.log(time, text, type);
+        
+        alertMarkers.push({
+            time: time, 
+            position: type === "BUY" ? "aboveBar" : "belowBar",
+            color: type === "BUY" ? "#26a69a" : "#ef5350",
+            shape: type === "BUY" ? "arrowUp" : "arrowDown",
+            text: text
+        });
+        LightweightCharts.createSeriesMarkers(volumeCandles, alertMarkers)
+    }
 
     // Load historical data
     const priceCandles = historicalData
@@ -59,10 +79,20 @@ document.addEventListener("DOMContentLoaded", () => {
         }));
     volumeCandles.setData(volumeCandlesData);
 
+    historicalAlerts.forEach(alert => {
+        addAlertMarker(alert.time, alert.text, alert.signal);
+    });
+
     // WebSocket updates
     let ws = new WebSocket(`ws://${window.location.host}/ws/live/${instrumentKey}`);
     ws.onmessage = (event) => {
         const tick = JSON.parse(event.data);
+
+        console.log(tick);
+        
+        if (tick.alert) {
+            addAlertMarker(tick.price.time, tick.alert.text, tick.alert.type);
+        }
 
         candleSeries.update({
             time: tick.price.time,

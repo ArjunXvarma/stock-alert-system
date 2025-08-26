@@ -10,6 +10,7 @@ from google.protobuf.json_format import MessageToDict
 import app.MarketDataFeed_pb2 as pb
 from app.redis import redisClient
 from starlette.websockets import WebSocketDisconnect
+from app.trade_signal_logic import compute_cvd_ohlc
 
 load_dotenv()
 
@@ -71,13 +72,20 @@ def build_payload(ts_sec, price_data, volume_data):
         "volume": volume_payload
     }
 
-def update_redis_if_unique(redisClient, instrument_key, ts_sec, price_payload, volume_payload):
+def update_redis_if_unique(redisClient, instrument_key, ts_sec, price_payload=None, volume_payload=None, alert_payload=None):
     price_key = f"{instrument_key}:price"
     volume_key = f"{instrument_key}:volume"
     timestamp_key = f"{instrument_key}:timestamp"
+    alert_key = f"{instrument_key}:alerts"
+
     if redisClient.sadd(timestamp_key, ts_sec):
         redisClient.rpush(price_key, json.dumps(price_payload))
         redisClient.rpush(volume_key, json.dumps(volume_payload))
+    if alert_payload:  # alerts can be multiple, so we push regardless
+        redisClient.rpush(alert_key, json.dumps({
+            "time": ts_sec,
+            **alert_payload
+        }))
 
 async def fetch_market_data(instrument_keys, client_websocket: WebSocket):
     ssl_context = ssl.create_default_context()
@@ -106,6 +114,10 @@ async def fetch_market_data(instrument_keys, client_websocket: WebSocket):
         instrument_key = instrument_keys[0]
         last_received_ts_ms = None 
         prev_candle_volume = None
+        prev_cum = 0.0
+
+        prev_price_close = None
+        prev_cvd_close = None
 
         while True:
             try:
@@ -132,26 +144,50 @@ async def fetch_market_data(instrument_keys, client_websocket: WebSocket):
                 if prev_candle_volume is None:
                     prev_candle_volume = current_candle_volume
 
-                vol_open = prev_candle_volume
-                vol_close = current_candle_volume
-                vol_high = max(vol_open, vol_close)
-                vol_low  = min(vol_open, vol_close)
+                # vol_open = prev_candle_volume
+                # vol_close = current_candle_volume
+                # vol_high = max(vol_open, vol_close)
+                # vol_low  = min(vol_open, vol_close)
 
+                cvd_open, cvd_high, cvd_low, cvd_close, prev_cum = compute_cvd_ohlc(price_open, price_close, current_candle_volume, prev_cum)
+
+                signal = None
+                if prev_price_close is not None and prev_cvd_close is not None:
+                    # Bullish engulfing style
+                    if price_close > price_open and cvd_close > cvd_open and cvd_close > prev_cvd_close:
+                        signal = "BUY"
+                    # Bearish engulfing style
+                    elif price_close < price_open and cvd_close < cvd_open and cvd_close < prev_cvd_close:
+                        signal = "SELL"
+
+                prev_price_close = price_close
+                prev_cvd_close = cvd_close
+                
                 price_data = {
                     "open": price_open,
                     "high": price_high,
                     "low": price_low,
                     "close": price_close
                 }
+
                 volume_data = {
-                    "open": vol_open,
-                    "high": vol_high,
-                    "low": vol_low,
-                    "close": vol_close
+                    "open": cvd_open,
+                    "high": cvd_high,
+                    "low": cvd_low,
+                    "close": cvd_close
                 }
 
                 payload = build_payload(ts_sec, price_data, volume_data)
-                update_redis_if_unique(redisClient, instrument_key, ts_sec, payload["price"], payload["volume"])
+                if signal:
+                    payload["alert"] = {
+                        "signal": signal,
+                        "text": "buy" if signal == "BUY" else "sell"
+                    } 
+
+                else:
+                    payload["alert"] = None
+
+                update_redis_if_unique(redisClient, instrument_key, ts_sec, payload["price"], payload["volume"], payload["alert"])
 
                 try:
                     await client_websocket.send_json(payload)
@@ -164,4 +200,4 @@ async def fetch_market_data(instrument_keys, client_websocket: WebSocket):
                     break
 
             except Exception as e:
-                print(f"Error in sending message")
+                print(f"Error in sending message", e)

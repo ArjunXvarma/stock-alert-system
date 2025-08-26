@@ -107,15 +107,18 @@ async def live_page(request: Request, instrument_key: str):
     price_key = f"{instrument_key}:price"
     volume_key = f"{instrument_key}:volume"
     timestamp_key = f"{instrument_key}:timestamp"
+    alert_key = f"{instrument_key}:alerts"
 
-    # Fetch all cached values
+    # Fetch cached values
     prices = redisClient.lrange(price_key, 0, -1) or []
     volumes = redisClient.lrange(volume_key, 0, -1) or []
     timestamps = redisClient.smembers(timestamp_key) or []
+    alerts = redisClient.lrange(alert_key, 0, -1) or []
 
     # Decode JSON strings
     prices = [json.loads(p) for p in prices]
     volumes = [json.loads(v) for v in volumes]
+    alerts = [json.loads(a) for a in alerts]
     timestamps = [int(ts) for ts in timestamps]
     timestamps.sort()
 
@@ -133,6 +136,7 @@ async def live_page(request: Request, instrument_key: str):
         {
             "request": request,
             "instrument_key": instrument_key,
-            "historical_data": historical_data
+            "historical_data": historical_data,
+            "alerts": alerts
         }
     )
