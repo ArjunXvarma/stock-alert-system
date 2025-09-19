@@ -72,7 +72,7 @@ def build_payload(ts_sec, price_data, volume_data):
         "volume": volume_payload
     }
 
-def update_redis_if_unique(redisClient, instrument_key, ts_sec, price_payload=None, volume_payload=None, alert_payload=None):
+def update_redis(redisClient, instrument_key, ts_sec, price_payload=None, volume_payload=None, alert_payload=None):
     price_key = f"{instrument_key}:price"
     volume_key = f"{instrument_key}:volume"
     timestamp_key = f"{instrument_key}:timestamp"
@@ -81,8 +81,8 @@ def update_redis_if_unique(redisClient, instrument_key, ts_sec, price_payload=No
     if redisClient.sadd(timestamp_key, ts_sec):
         redisClient.rpush(price_key, json.dumps(price_payload))
         redisClient.rpush(volume_key, json.dumps(volume_payload))
-    if alert_payload:  # alerts can be multiple, so we push regardless
-        redisClient.rpush(alert_key, json.dumps({
+    if alert_payload:
+        redisClient.sadd(alert_key, json.dumps({
             "time": ts_sec,
             **alert_payload
         }))
@@ -124,12 +124,14 @@ async def fetch_market_data(instrument_keys, client_websocket: WebSocket):
                 msg = await websocket.recv()
                 decoded = decode_protobuf(msg)
                 data_dict = MessageToDict(decoded)
+                # print('-----------------------------------------------------------')
+                # print(data_dict)
+                # print('-----------------------------------------------------------')
 
                 market_minute_data, ts_ms = extract_market_minute_data(data_dict, instrument_key)
                 if market_minute_data is None or ts_ms is None:
                     continue
 
-                # --- Skip if timestamp is same as previous ---
                 if last_received_ts_ms is not None and ts_ms == last_received_ts_ms:
                     continue
                 last_received_ts_ms = ts_ms
@@ -187,7 +189,7 @@ async def fetch_market_data(instrument_keys, client_websocket: WebSocket):
                 else:
                     payload["alert"] = None
 
-                update_redis_if_unique(redisClient, instrument_key, ts_sec, payload["price"], payload["volume"], payload["alert"])
+                update_redis(redisClient, instrument_key, ts_sec, payload["price"], payload["volume"], payload["alert"])
 
                 try:
                     await client_websocket.send_json(payload)

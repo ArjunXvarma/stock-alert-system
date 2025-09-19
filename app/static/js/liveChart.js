@@ -1,14 +1,16 @@
 document.addEventListener("DOMContentLoaded", () => {
     const container = document.querySelector(".main-container");
     const instrumentKey = container.dataset.instrument;
+    const historicalData = Array.isArray(container.dataset.historical)
+        ? container.dataset.historical
+        : JSON.parse(container.dataset.historical || "[]");
+    const historicalAlerts = Array.isArray(container.dataset.alerts)
+        ? container.dataset.alerts
+        : JSON.parse(container.dataset.alerts || "[]");
 
-    const historicalData = JSON.parse(container.dataset.historical);
-    const historicalAlerts = JSON.parse(container.dataset.alerts);
-
-    // Keep a global array of alert markers
     let alertMarkers = [];
 
-    let chartOptions = { 
+    const chartOptions = { 
         layout: { 
             textColor: 'white', 
             background: { type: 'solid', color: 'rgba(0,0,0,0)' }
@@ -28,70 +30,54 @@ document.addEventListener("DOMContentLoaded", () => {
         borderUpColor: '#26a69a', borderDownColor: '#ef5350',
         wickUpColor: '#26a69a', wickDownColor: '#ef5350'
     });
-
     priceChart.timeScale().fitContent();
 
     const volumeChart = LightweightCharts.createChart(
         document.getElementById('volume-chart'), chartOptions
     );
-
     const volumeCandles = volumeChart.addSeries(LightweightCharts.CandlestickSeries, { 
         upColor: '#26a69a', downColor: '#ef5350',
         borderVisible: false,
         wickUpColor: '#26a69a', wickDownColor: '#ef5350'
     });
-
     volumeChart.timeScale().fitContent();
 
     function addAlertMarker(time, text, type = "up") {
-        console.log(time, text, type);
-        
         alertMarkers.push({
-            time: time, 
+            time,
             position: type === "BUY" ? "aboveBar" : "belowBar",
             color: type === "BUY" ? "#26a69a" : "#ef5350",
             shape: type === "BUY" ? "arrowUp" : "arrowDown",
-            text: text
+            text
         });
-        LightweightCharts.createSeriesMarkers(volumeCandles, alertMarkers)
+        LightweightCharts.createSeriesMarkers(volumeCandles, alertMarkers);
     }
 
-    // Load historical data
-    const priceCandles = historicalData
-        .filter(d => d.price && d.price.open != null)
-        .map(d => ({
-            time: d.price.time,
-            open: parseFloat(d.price.open),
-            high: parseFloat(d.price.high),
-            low: parseFloat(d.price.low),
-            close: parseFloat(d.price.close)
-        }));
-    candleSeries.setData(priceCandles);
+    function mapCandleData(data, key) {
+        return data
+            .filter(d => d[key] && d[key].open != null)
+            .map(d => ({
+                time: d.price.time,
+                open: parseFloat(d[key].open),
+                high: parseFloat(d[key].high),
+                low: parseFloat(d[key].low),
+                close: parseFloat(d[key].close)
+            }));
+    }
 
-    const volumeCandlesData = historicalData
-        .filter(d => d.volume && d.volume.open != null)
-        .map(d => ({
-            time: d.price.time,
-            open: parseFloat(d.volume.open),
-            high: parseFloat(d.volume.high),
-            low: parseFloat(d.volume.low),
-            close: parseFloat(d.volume.close)
-        }));
-    volumeCandles.setData(volumeCandlesData);
+    candleSeries.setData(mapCandleData(historicalData, "price"));
+    volumeCandles.setData(mapCandleData(historicalData, "volume"));
 
     historicalAlerts.forEach(alert => {
         addAlertMarker(alert.time, alert.text, alert.signal);
     });
 
-    // WebSocket updates
-    let ws = new WebSocket(`ws://${window.location.host}/ws/live/${instrumentKey}`);
+    const ws = new WebSocket(`ws://${window.location.host}/ws/live/${instrumentKey}`);
     ws.onmessage = (event) => {
         const tick = JSON.parse(event.data);
 
-        console.log(tick);
-        
         if (tick.alert) {
-            addAlertMarker(tick.price.time, tick.alert.text, tick.alert.type);
+            addAlertMarker(tick.price.time, tick.alert.text, tick.alert.signal);
         }
 
         candleSeries.update({

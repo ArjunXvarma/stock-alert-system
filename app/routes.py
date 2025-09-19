@@ -91,38 +91,33 @@ async def live_data(websocket: WebSocket, instrument_key: str):
     await websocket.accept()
     clients.add(websocket)
 
-    # Start streaming in the background (if not already running)
     asyncio.create_task(fetch_market_data([instrument_key], websocket))
 
     try:
         while True:
-            await websocket.receive_text()  # Keep connection alive
+            await websocket.receive_text()
     except:
         print('Socket being removed')
         clients.remove(websocket)
 
 @router.get("/live/{instrument_key}", response_class=HTMLResponse)
 async def live_page(request: Request, instrument_key: str):
-    # Redis keys
     price_key = f"{instrument_key}:price"
     volume_key = f"{instrument_key}:volume"
     timestamp_key = f"{instrument_key}:timestamp"
     alert_key = f"{instrument_key}:alerts"
 
-    # Fetch cached values
     prices = redisClient.lrange(price_key, 0, -1) or []
     volumes = redisClient.lrange(volume_key, 0, -1) or []
     timestamps = redisClient.smembers(timestamp_key) or []
-    alerts = redisClient.lrange(alert_key, 0, -1) or []
+    alerts = redisClient.smembers(alert_key) or []
 
-    # Decode JSON strings
     prices = [json.loads(p) for p in prices]
     volumes = [json.loads(v) for v in volumes]
     alerts = [json.loads(a) for a in alerts]
     timestamps = [int(ts) for ts in timestamps]
     timestamps.sort()
 
-    # Organize into frontend-friendly structure
     historical_data = []
     for ts, price, volume in zip(timestamps, prices, volumes):
         historical_data.append({
