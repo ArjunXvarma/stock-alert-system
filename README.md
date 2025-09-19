@@ -47,7 +47,7 @@ flowchart LR
 
 **Languages & Frameworks**
 
-* Python (Flask / FastAPI potential upgrade)
+* Python (FastAPI)
 * HTML, CSS, JavaScript (frontend templates)
 
 **Streaming & Data Handling**
@@ -58,7 +58,6 @@ flowchart LR
 
 **Infrastructure**
 
-* Docker (deployment ready)
 * Shell scripts (`run.sh`, `build.sh`) for environment setup
 ---
 
@@ -97,8 +96,8 @@ Open [http://localhost:5000](http://localhost:5000) in your browser.
 
 * **Multi-user subscriptions** with Kafka/RabbitMQ for horizontal scaling
 * **Advanced alerting** (SMS, Email, Push Notifications)
-* **ML-driven strategy engine** for predictive signals
-* **CI/CD Integration** with GitHub Actions
+* **Strategy engine** for creating strategies to predict signals
 * **Deployment on Kubernetes** for resilience
+* **Add unit testing** to ensure proper working of system
 
 ---
