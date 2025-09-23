@@ -36,6 +36,7 @@ flowchart LR
     end
 
     API --> WS --> Logic --> Redis
+    WS --> Redis
     Redis --> Routes --> UI
     Logic --> UI
     Proto --> WS
@@ -89,6 +90,8 @@ bash run.sh
 ```
 
 Open [http://localhost:5000](http://localhost:5000) in your browser.
+
+> NOTE: Before running the application, make sure to have an upstox access token, follow the guide [here](https://upstox.com/developer/api-documentation/authentication) to get one. After obtaining the access token, save the token in a variable called `UPSTOX_ACCESS_TOKEN` in your `.env` file.
 
 ---
 
