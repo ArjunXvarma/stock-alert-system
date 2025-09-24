@@ -169,7 +169,7 @@ Open [http://localhost:5000](http://localhost:5000) in your browser.
 * **Deployment on Kubernetes** for resilience
 * **Add unit testing** to ensure proper working of system
 * **Improve code quality** to further enhance the codebase
-* **Add watchlist tracking** to track multiple stocks
+* **Add watchlist tracking** to cache live data for multiple stocks in the background
 
 ---
 
