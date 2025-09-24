@@ -28,7 +28,7 @@ The **Stock Alert System** is a full-stack, real-time trading platform that stre
 * Protobuf for compact data serialization
 * Redis for caching
 
-**Infrastructure**
+**Build setups**
 
 * Shell scripts (`run.sh`, `build.sh`) for environment setup
 
