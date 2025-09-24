@@ -109,13 +109,6 @@ The **Stock Alert System** is built as a full-stack, real-time data pipeline wit
 3. **Redis → Signal Engine → Alerts back to Redis**
 4. **Frontend WebSocket → Browser JavaScript → Live Charts + Alerts**
 
-This architecture mimics how **real-world trading systems** work:
-
-* Low-latency ingestion (WebSockets + Protobuf)
-* Central cache (Redis) for shared state
-* Modular strategies (pluggable trading logic)
-* Realtime UI updates (WebSocket push to frontend)
-
 ---
 
 ## Tech Stack
