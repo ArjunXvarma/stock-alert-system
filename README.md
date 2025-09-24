@@ -177,10 +177,10 @@ Open [http://localhost:5000](http://localhost:5000) in your browser.
 ### Live streaming data
 ![live-streaming-data](docs/gifs/live-data-streaming.gif)
 
-*Live stock data streaming*
+*Live stock data streaming (clip sped up by 15000x)*
 ![volume-data-streaming](docs/gifs/volume-data-streaming.gif)
 
-*Live volume data streaming*
+*Live volume data streaming (clip sped up by 15000x)*
 
 ### Pages
 ![index page](docs/img/index.png)
