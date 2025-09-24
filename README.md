@@ -169,6 +169,7 @@ Open [http://localhost:5000](http://localhost:5000) in your browser.
 * **Strategy engine** for creating strategies to predict buy/sell signals
 * **Deployment on Kubernetes** for resilience
 * **Add unit testing** to ensure proper working of system
+* **Improve code quality** to further enhance the codebase.
 
 ---
 
