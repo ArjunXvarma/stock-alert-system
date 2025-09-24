@@ -164,13 +164,12 @@ Open [http://localhost:5000](http://localhost:5000) in your browser.
 
 ## Future Improvements
 
-* **Multi-user subscriptions** with Kafka/RabbitMQ for horizontal scaling
 * **Advanced alerting** (SMS, Email, Push Notifications)
 * **Strategy engine** for creating strategies to predict buy/sell signals
 * **Deployment on Kubernetes** for resilience
 * **Add unit testing** to ensure proper working of system
-* **Improve code quality** to further enhance the codebase.
-* **Add watchlist tracking** to track multiple stocks.
+* **Improve code quality** to further enhance the codebase
+* **Add watchlist tracking** to track multiple stocks
 
 ---
 
