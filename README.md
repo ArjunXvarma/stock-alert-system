@@ -96,8 +96,8 @@ The **Stock Alert System** is built as a full-stack, real-time data pipeline wit
 
 3. **Interactive Charts & Alerts**
 
-   * **Lighweight charts** by [TradingView](https://tradingview.github.io/lightweight-charts/) update in real-time as new data arrives.
-   * Alerts from the backend are rendered a UI notifications, future plans include adding a telegram bot to handle notifications.
+   * **Lightweight charts** by [TradingView](https://tradingview.github.io/lightweight-charts/) update in real-time as new data arrives.
+   * Alerts from the backend are rendered as UI notifications, future plans include adding a telegram bot to handle notifications.
    * Users see both **live price ticks** and **triggered trade alerts** in a responsive dashboard.
 
 ---
