@@ -15,6 +15,25 @@ The **Stock Alert System** is a full-stack, real-time trading platform that stre
 
 ---
 
+## Tech Stack
+
+**Languages & Frameworks**
+
+* Python (FastAPI)
+* HTML, CSS, JavaScript (frontend templates)
+
+**Streaming & Data Handling**
+
+* WebSockets for live data
+* Protobuf for compact data serialization
+* Redis for caching
+
+**Infrastructure**
+
+* Shell scripts (`run.sh`, `build.sh`) for environment setup
+
+---
+
 ## System Architecture
 
 ```mermaid
@@ -109,24 +128,6 @@ The **Stock Alert System** is built as a full-stack, real-time data pipeline wit
 3. **Redis → Signal Engine → Alerts back to Redis**
 4. **Frontend WebSocket → Browser JavaScript → Live Charts + Alerts**
 
----
-
-## Tech Stack
-
-**Languages & Frameworks**
-
-* Python (FastAPI)
-* HTML, CSS, JavaScript (frontend templates)
-
-**Streaming & Data Handling**
-
-* WebSockets for live data
-* Protobuf for compact data serialization
-* Redis for caching
-
-**Infrastructure**
-
-* Shell scripts (`run.sh`, `build.sh`) for environment setup
 ---
 
 ## Getting Started
