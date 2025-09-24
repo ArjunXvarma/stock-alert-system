@@ -1,6 +1,6 @@
 # Stock Alert System
 
-The **Stock Alert System** is a full-stack, real-time trading platform that streams live market data, processes it with **WebSockets + Protobuf**, caches it in **Redis** for low-latency access, and serves **instant trade alerts** through a **FastAPI-powered backend** and interactive web dashboard. Designed with a modular signal engine, the system demonstrates **scalable backend architecture, efficient data streaming, and full-stack integration** — built to model real-world financial trading systems like [TradingView](https://in.tradingview.com/pricing/).
+The **Stock Alert System** is a full-stack, real-time trading platform that streams live market data, processes it with **WebSockets + Protobuf**, caches it in **Redis** for low-latency access, and serves **instant trade alerts** through a **FastAPI-powered backend** and interactive web dashboard. Designed with a signal engine, the system demonstrates **efficient data streaming and full-stack integration** — built to model real-world financial trading systems like [TradingView](https://in.tradingview.com/pricing/).
 
 ---
 
@@ -123,10 +123,10 @@ The **Stock Alert System** is built as a full-stack, real-time data pipeline wit
 
 ### Data Flow Summary
 
-1. **Upstox API → WebSocket Stream → Protobuf serialization**
-2. **Protobuf messages → Redis cache for low-latency storage**
-3. **Redis → Signal Engine → Alerts back to Redis**
-4. **Frontend WebSocket → Browser JavaScript → Live Charts + Alerts**
+1. **Upstox API -> WebSocket Stream -> Protobuf serialization**
+2. **Protobuf messages -> Redis cache for low-latency storage**
+3. **Redis -> Signal Engine -> Alerts back to Redis**
+4. **Frontend WebSocket -> Browser JavaScript -> Live Charts + Alerts**
 
 ---
 
