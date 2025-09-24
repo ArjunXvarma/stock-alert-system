@@ -104,3 +104,8 @@ Open [http://localhost:5000](http://localhost:5000) in your browser.
 * **Add unit testing** to ensure proper working of system
 
 ---
+
+## Screenshots of the app
+
+### Live streaming data
+![live-streaming-data](docs/gifs/live-data-streaming.gif)
